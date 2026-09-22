@@ -1,0 +1,58 @@
+import random
+
+def print_board(board):
+    print(f"\n {board[0]} | {board[1]} | {board[2]} ")
+    print("---|---|---")
+    print(f" {board[3]} | {board[4]} | {board[5]} ")
+    print("---|---|---")
+    print(f" {board[6]} | {board[7]} | {board[8]} \n")
+
+def check_winner(board):
+    wins = [(0,1,2), (3,4,5), (6,7,8), (0,3,6), (1,4,7), (2,5,8), (0,4,8), (2,4,6)]
+    for a, b, c in wins:
+        if board[a] == board[b] == board[c] != " ":
+            return board[a]
+    if " " not in board:
+        return "Draw"
+    return None
+
+def main():
+    board = [" "] * 9
+    player = "X"
+    mode = input("Select mode (1: vs Player, 2: vs Computer): ").strip()
+
+    while True:
+        print_board(board)
+        
+        # Get move
+        if mode == "2" and player == "O":
+            move = random.choice([i for i in range(9) if board[i] == " "])
+            print(f"Computer chose position {move + 1}")
+        else:
+            try:
+                move = int(input(f"Player {player}, enter position (1-9): ")) - 1
+                if move not in range(9) or board[move] != " ":
+                    print("Invalid move. Try again.")
+                    continue
+            except ValueError:
+                print("Please enter a number between 1 and 9.")
+                continue
+
+        # Make move
+        board[move] = player
+        
+        # Check end condition
+        result = check_winner(board)
+        if result:
+            print_board(board)
+            if result == "Draw":
+                print("It's a draw!")
+            else:
+                print(f"Player {result} wins!")
+            break
+
+        # Switch player
+        player = "O" if player == "X" else "X"
+
+if __name__ == "__main__":
+    main()
