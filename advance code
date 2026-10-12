@@ -1,0 +1,125 @@
+import random
+
+def print_board(board):
+    """Displays a modern boxed 3x3 game board."""
+    print("\n")
+    print(f"  [{board[0]}] | [{board[1]}] | [{board[2]}] ")
+    print("  ----+-----+----")
+    print(f"  [{board[3]}] | [{board[4]}] | [{board[5]}] ")
+    print("  ----+-----+----")
+    print(f"  [{board[6]}] | [{board[7]}] | [{board[8]}] ")
+    print("\n")
+
+def check_winner(board, player):
+    """Checks all winning combinations for rows, columns, and diagonals."""
+    win_conditions = [
+        (0, 1, 2), (3, 4, 5), (6, 7, 8),  # Rows
+        (0, 3, 6), (1, 4, 7), (2, 5, 8),  # Columns
+        (0, 4, 8), (2, 4, 6)             # Diagonals
+    ]
+    return any(board[a] == board[b] == board[c] == player for a, b, c in win_conditions)
+
+def get_ai_move(board, ai_symbol, human_symbol):
+    """Smart AI logic to block user or win the game."""
+    # 1. Check if AI can win in the next move
+    for i in range(9):
+        if board[i] not in ("🚀", "🛸"):
+            temp_board = board.copy()
+            temp_board[i] = ai_symbol
+            if check_winner(temp_board, ai_symbol):
+                return i
+    
+    # 2. Check if Human can win in the next move and block them
+    for i in range(9):
+        if board[i] not in ("🚀", "🛸"):
+            temp_board = board.copy()
+            temp_board[i] = human_symbol
+            if check_winner(temp_board, human_symbol):
+                return i
+                
+    # 3. Take the center if available
+    if board[4] not in ("🚀", "🛸"):
+        return 4
+        
+    # 4. Otherwise, pick a random available spot
+    available = [i for i, spot in enumerate(board) if spot not in ("🚀", "🛸")]
+    return random.choice(available)
+
+def play_tic_tac_toe(scores):
+    """Core game loop managing modes, turns, and scores."""
+    board = [str(i + 1) for i in range(9)]
+    player1 = "🚀"
+    player2 = "🛸"
+    
+    print("\n--- SELECT GAME MODE ---")
+    print("1. Player vs Player 👥")
+    print("2. Player vs Computer (AI) 🤖")
+    
+    while True:
+        mode = input("Enter your choice (1 or 2): ").strip()
+        if mode in ('1', '2'):
+            break
+        print("❌ Invalid choice! Please enter 1 or 2.")
+        
+    vs_ai = (mode == '2')
+    current_player = player1
+    turns = 0
+
+    print(f"\n=== ✨ SPACE BATTLE: {player1} vs {player2} ✨ ===")
+
+    while turns < 9:
+        print_board(board)
+        
+        # Handle AI move or Player move
+        if vs_ai and current_player == player2:
+            print("🤖 Computer is thinking...")
+            move = get_ai_move(board, player2, player1)
+        else:
+            try:
+                move_input = input(f"Player {current_player}'s turn (1-9): ")
+                move = int(move_input) - 1
+                if move < 0 or move > 8:
+                    print("❌ Invalid choice! Please enter a number between 1 and 9.")
+                    continue
+                if board[move] in (player1, player2):
+                    print("❌ That box is already taken! Choose an empty one.")
+                    continue
+            except ValueError:
+                print("❌ Invalid input! Please enter a valid number.")
+                continue
+
+        # Make the move
+        board[move] = current_player
+        turns += 1
+
+        # Check for a win
+        if check_winner(board, current_player):
+            print_board(board)
+            print(f"🎉 Awesome! Player {current_player} wins this round! 🎉")
+            scores[current_player] += 1
+            return scores
+
+        # Check for a draw
+        if turns == 9:
+            print_board(board)
+            print("It's a draw! What a tight match. 🤝")
+            scores["Draws"] += 1
+            return scores
+
+        # Switch player
+        current_player = player2 if current_player == player1 else player1
+
+if __name__ == "__main__":
+    scores = {"🚀": 0, "🛸": 0, "Draws": 0}
+    
+    print("Welcome to Ultimate Tic Tac Toe!")
+    while True:
+        print(f"\n📊 CURRENT SCOREBOARD -> 🚀: {scores['🚀']} | 🛸: {scores['🛸']} | Draws: {scores['Draws']}")
+        scores = play_tic_tac_toe(scores)
+        
+        restart = input("\nDo you want to play another round? (y/n): ").strip().lower()
+        if restart != 'y':
+            print("\n--- FINAL SCOREBOARD ---")
+            print(f"🚀 Wins: {scores['🚀']} | 🛸 Wins: {scores['🛸']} | Draws: {scores['Draws']}")
+            print("Thanks for playing! Goodbye 👋")
+            break
