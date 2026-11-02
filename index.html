@@ -1,0 +1,354 @@
+import tkinter as tk
+from tkinter import messagebox, ttk
+import math
+
+class EnhancedTicTacToe:
+    def __init__(self, root):
+        self.root = root
+        self.root.title("Enhanced Tic Tac Toe")
+        self.root.resizable(False, False)
+
+        # Game Configurations
+        self.board_size = 3  # Default 3x3
+        self.win_length = 3  # Win condition
+        self.mode = "PvE"     # "PvP" or "PvE"
+        self.difficulty = "Hard"  # "Easy", "Medium", "Hard"
+        self.theme = "Classic"
+
+        # Game State Variables
+        self.current_player = "X"
+        self.board = []
+        self.history = []  # For Undo feature
+        self.scores = {"X": 0, "O": 0, "Ties": 0}
+        self.game_over = False
+
+        # Color Themes
+        self.themes = {
+            "Classic": {"bg": "#F3F4F6", "card": "#FFFFFF", "text": "#1F2937", "btn_bg": "#E5E7EB", "x_color": "#2563EB", "o_color": "#DC2626"},
+            "Cyberpunk": {"bg": "#0D0221", "card": "#0F0529", "text": "#00F5D4", "btn_bg": "#241042", "x_color": "#00F5D4", "o_color": "#7B2CBF"},
+            "Dark": {"bg": "#18181B", "card": "#27272A", "text": "#FAFAFA", "btn_bg": "#3F3F46", "x_color": "#38BDF8", "o_color": "#F43F5E"},
+        }
+
+        self.setup_ui()
+        self.reset_game()
+
+    def setup_ui(self):
+        """Constructs the user interface."""
+        self.main_frame = tk.Frame(self.root, padx=20, pady=20)
+        self.main_frame.pack(fill=tk.BOTH, expand=True)
+
+        # Title Label
+        self.title_label = tk.Label(self.main_frame, text="Tic Tac Toe", font=("Helvetica", 24, "bold"))
+        self.title_label.grid(row=0, column=0, columnspan=2, pady=(0, 10))
+
+        # Control Panel (Settings)
+        control_frame = tk.Frame(self.main_frame)
+        control_frame.grid(row=1, column=0, columnspan=2, pady=5)
+
+        tk.Label(control_frame, text="Mode:", font=("Helvetica", 10)).grid(row=0, column=0, padx=2)
+        self.mode_cb = ttk.Combobox(control_frame, values=["PvE", "PvP"], width=6, state="readonly")
+        self.mode_cb.set(self.mode)
+        self.mode_cb.bind("<<ComboboxSelected>>", self.on_settings_change)
+        self.mode_cb.grid(row=0, column=1, padx=5)
+
+        tk.Label(control_frame, text="Difficulty:", font=("Helvetica", 10)).grid(row=0, column=2, padx=2)
+        self.diff_cb = ttk.Combobox(control_frame, values=["Easy", "Medium", "Hard"], width=7, state="readonly")
+        self.diff_cb.set(self.difficulty)
+        self.diff_cb.bind("<<ComboboxSelected>>", self.on_settings_change)
+        self.diff_cb.grid(row=0, column=3, padx=5)
+
+        tk.Label(control_frame, text="Grid:", font=("Helvetica", 10)).grid(row=0, column=4, padx=2)
+        self.grid_cb = ttk.Combobox(control_frame, values=["3x3", "4x4", "5x5"], width=5, state="readonly")
+        self.grid_cb.set("3x3")
+        self.grid_cb.bind("<<ComboboxSelected>>", self.on_settings_change)
+        self.grid_cb.grid(row=0, column=5, padx=5)
+
+        # Scoreboard
+        self.score_label = tk.Label(self.main_frame, text="", font=("Helvetica", 12, "bold"))
+        self.score_label.grid(row=2, column=0, columnspan=2, pady=10)
+
+        # Status Label
+        self.status_label = tk.Label(self.main_frame, text="", font=("Helvetica", 12))
+        self.status_label.grid(row=3, column=0, columnspan=2, pady=5)
+
+        # Board Container
+        self.board_frame = tk.Frame(self.main_frame)
+        self.board_frame.grid(row=4, column=0, columnspan=2, pady=10)
+
+        # Action Buttons
+        action_frame = tk.Frame(self.main_frame)
+        action_frame.grid(row=5, column=0, columnspan=2, pady=(10, 0))
+
+        self.undo_btn = tk.Button(action_frame, text="Undo Move", font=("Helvetica", 10), command=self.undo_move)
+        self.undo_btn.pack(side=tk.LEFT, padx=5)
+
+        self.restart_btn = tk.Button(action_frame, text="Restart Game", font=("Helvetica", 10), command=self.reset_game)
+        self.restart_btn.pack(side=tk.LEFT, padx=5)
+
+        self.theme_btn = tk.Button(action_frame, text="Toggle Theme", font=("Helvetica", 10), command=self.toggle_theme)
+        self.theme_btn.pack(side=tk.LEFT, padx=5)
+
+        self.apply_theme()
+
+    def update_scoreboard(self):
+        """Updates score display."""
+        self.score_label.config(
+            text=f"Player (X): {self.scores['X']}   |   Ties: {self.scores['Ties']}   |   {'AI' if self.mode == 'PvE' else 'Player'} (O): {self.scores['O']}"
+        )
+
+    def on_settings_change(self, event=None):
+        """Handles change of mode, difficulty, or grid size."""
+        self.mode = self.mode_cb.get()
+        self.difficulty = self.diff_cb.get()
+        grid_str = self.grid_cb.get()
+        
+        self.board_size = int(grid_str[0])
+        self.win_length = 3 if self.board_size == 3 else 4  # 4-in-a-row for 4x4 and 5x5
+
+        # Enable/Disable difficulty combobox based on mode
+        if self.mode == "PvP":
+            self.diff_cb.config(state="disabled")
+        else:
+            self.diff_cb.config(state="readonly")
+
+        self.scores = {"X": 0, "O": 0, "Ties": 0}
+        self.reset_game()
+
+    def apply_theme(self):
+        """Applies current active color palette across UI components."""
+        colors = self.themes[self.theme]
+        self.root.configure(bg=colors["bg"])
+        self.main_frame.configure(bg=colors["bg"])
+        self.title_label.configure(bg=colors["bg"], fg=colors["text"])
+        self.score_label.configure(bg=colors["bg"], fg=colors["text"])
+        self.status_label.configure(bg=colors["bg"], fg=colors["text"])
+        self.board_frame.configure(bg=colors["bg"])
+
+        for row in range(self.board_size):
+            for col in range(self.board_size):
+                if hasattr(self, 'buttons') and len(self.buttons) > row and len(self.buttons[row]) > col:
+                    btn = self.buttons[row][col]
+                    val = self.board[row][col]
+                    fg = colors["x_color"] if val == "X" else (colors["o_color"] if val == "O" else colors["text"])
+                    btn.configure(bg=colors["card"], fg=fg, activebackground=colors["btn_bg"])
+
+    def toggle_theme(self):
+        """Cycles through available visual themes."""
+        theme_names = list(self.themes.keys())
+        current_idx = theme_names.index(self.theme)
+        self.theme = theme_names[(current_idx + 1) % len(theme_names)]
+        self.apply_theme()
+
+    def reset_game(self):
+        """Resets the game grid and state."""
+        self.board = [["" for _ in range(self.board_size)] for _ in range(self.board_size)]
+        self.history = []
+        self.current_player = "X"
+        self.game_over = False
+
+        # Clear existing button widgets
+        for widget in self.board_frame.winfo_children():
+            widget.destroy()
+
+        # Build dynamic grid
+        self.buttons = []
+        font_size = 24 if self.board_size == 3 else (18 if self.board_size == 4 else 14)
+        btn_width = 4 if self.board_size == 3 else 3
+        btn_height = 2 if self.board_size == 3 else 1
+
+        colors = self.themes[self.theme]
+        for r in range(self.board_size):
+            row_btns = []
+            for c in range(self.board_size):
+                btn = tk.Button(
+                    self.board_frame,
+                    text="",
+                    font=("Helvetica", font_size, "bold"),
+                    width=btn_width,
+                    height=btn_height,
+                    bg=colors["card"],
+                    activebackground=colors["btn_bg"],
+                    command=lambda r=r, c=c: self.make_move(r, c)
+                )
+                btn.grid(row=r, column=c, padx=3, pady=3)
+                row_btns.append(btn)
+            self.buttons.append(row_btns)
+
+        self.update_scoreboard()
+        self.status_label.config(text=f"Player {self.current_player}'s Turn")
+
+    def make_move(self, row, col):
+        """Executes a move at (row, col) for current player."""
+        if self.board[row][col] != "" or self.game_over:
+            return
+
+        # Record board state for Undo
+        self.history.append(([row[:] for row in self.board], self.current_player))
+
+        # Make Move
+        self.board[row][col] = self.current_player
+        colors = self.themes[self.theme]
+        fg = colors["x_color"] if self.current_player == "X" else colors["o_color"]
+        self.buttons[row][col].config(text=self.current_player, fg=fg)
+
+        # Check Win / Draw Condition
+        winner, win_coords = self.check_winner(self.board)
+        if winner:
+            self.game_over = True
+            self.scores[winner] += 1
+            self.update_scoreboard()
+            self.highlight_win(win_coords)
+            self.status_label.config(text=f"🎉 Player {winner} Wins!")
+            return
+        elif self.is_board_full(self.board):
+            self.game_over = True
+            self.scores["Ties"] += 1
+            self.update_scoreboard()
+            self.status_label.config(text="It's a Draw!")
+            return
+
+        # Switch Player
+        self.current_player = "O" if self.current_player == "X" else "X"
+        self.status_label.config(text=f"Player {self.current_player}'s Turn")
+
+        # Trigger AI move if in PvE mode
+        if self.mode == "PvE" and self.current_player == "O" and not self.game_over:
+            self.root.after(300, self.ai_move)
+
+    def undo_move(self):
+        """Undoes the previous move(s)."""
+        if not self.history or self.game_over:
+            return
+
+        # In PvE mode, undo two turns (User + AI)
+        steps = 2 if (self.mode == "PvE" and len(self.history) >= 2) else 1
+        for _ in range(steps):
+            if self.history:
+                self.board, self.current_player = self.history.pop()
+
+        # Update GUI grid
+        colors = self.themes[self.theme]
+        for r in range(self.board_size):
+            for c in range(self.board_size):
+                val = self.board[r][c]
+                fg = colors["x_color"] if val == "X" else (colors["o_color"] if val == "O" else colors["text"])
+                self.buttons[r][c].config(text=val, fg=fg, bg=colors["card"])
+
+        self.game_over = False
+        self.status_label.config(text=f"Player {self.current_player}'s Turn")
+
+    def highlight_win(self, coords):
+        """Highlights winning sequence on grid."""
+        for r, c in coords:
+            self.buttons[r][c].config(bg="#10B981")  # Green highlight
+
+    def check_winner(self, board):
+        """Checks grid state for a winner given target win length."""
+        size = len(board)
+        directions = [(0, 1), (1, 0), (1, 1), (1, -1)]
+
+        for r in range(size):
+            for c in range(size):
+                player = board[r][c]
+                if not player:
+                    continue
+
+                for dr, dc in directions:
+                    coords = []
+                    for i in range(self.win_length):
+                        nr, nc = r + dr * i, c + dc * i
+                        if 0 <= nr < size and 0 <= nc < size and board[nr][nc] == player:
+                            coords.append((nr, nc))
+                        else:
+                            break
+                    if len(coords) == self.win_length:
+                        return player, coords
+
+        return None, []
+
+    def is_board_full(self, board):
+        """Checks if all cells are filled."""
+        return all(cell != "" for row in board for cell in row)
+
+    # --- AI Implementation (Minimax & Heuristics) ---
+
+    def ai_move(self):
+        """Determines best AI move based on difficulty setting."""
+        import random
+
+        empty_cells = [(r, c) for r in range(self.board_size) for c in range(self.board_size) if self.board[r][c] == ""]
+        if not empty_cells:
+            return
+
+        if self.difficulty == "Easy":
+            move = random.choice(empty_cells)
+        elif self.difficulty == "Medium":
+            # 50% optimal move, 50% random move
+            if random.random() < 0.5:
+                move = self.get_best_move()
+            else:
+                move = random.choice(empty_cells)
+        else:  # Hard / Unbeatable
+            move = self.get_best_move()
+
+        if move:
+            self.make_move(move[0], move[1])
+
+    def get_best_move(self):
+        """Finds optimal move using Minimax (limited depth for > 3x3 boards)."""
+        best_score = -math.inf
+        best_move = None
+        max_depth = 4 if self.board_size > 3 else 9
+
+        for r in range(self.board_size):
+            for c in range(self.board_size):
+                if self.board[r][c] == "":
+                    self.board[r][c] = "O"
+                    score = self.minimax(self.board, 0, False, -math.inf, math.inf, max_depth)
+                    self.board[r][c] = ""
+                    if score > best_score:
+                        best_score = score
+                        best_move = (r, c)
+
+        return best_move
+
+    def minimax(self, board, depth, is_maximizing, alpha, beta, max_depth):
+        winner, _ = self.check_winner(board)
+        if winner == "O":
+            return 10 - depth
+        if winner == "X":
+            return depth - 10
+        if self.is_board_full(board) or depth >= max_depth:
+            return 0
+
+        if is_maximizing:
+            max_eval = -math.inf
+            for r in range(self.board_size):
+                for c in range(self.board_size):
+                    if board[r][c] == "":
+                        board[r][c] = "O"
+                        eval_score = self.minimax(board, depth + 1, False, alpha, beta, max_depth)
+                        board[r][c] = ""
+                        max_eval = max(max_eval, eval_score)
+                        alpha = max(alpha, eval_score)
+                        if beta <= alpha:
+                            break
+            return max_eval
+        else:
+            min_eval = math.inf
+            for r in range(self.board_size):
+                for c in range(self.board_size):
+                    if board[r][c] == "":
+                        board[r][c] = "X"
+                        eval_score = self.minimax(board, depth + 1, True, alpha, beta, max_depth)
+                        board[r][c] = ""
+                        min_eval = min(min_eval, eval_score)
+                        beta = min(beta, eval_score)
+                        if beta <= alpha:
+                            break
+            return min_eval
+
+if __name__ == "__main__":
+    root = tk.Tk()
+    app = EnhancedTicTacToe(root)
+    root.mainloop()
