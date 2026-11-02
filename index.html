@@ -1,0 +1,418 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Enhanced Tic Tac Toe</title>
+    <style>
+        :root {
+            --bg: #F3F4F6;
+            --card: #FFFFFF;
+            --text: #1F2937;
+            --btn-bg: #E5E7EB;
+            --x-color: #2563EB;
+            --o-color: #DC2626;
+            --accent: #10B981;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: var(--bg);
+            color: var(--text);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            margin: 0;
+            transition: background 0.3s, color 0.3s;
+        }
+
+        .main-frame {
+            background-color: var(--card);
+            padding: 25px;
+            border-radius: 16px;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            max-width: 400px;
+            width: 90%;
+        }
+
+        h1 {
+            margin: 0 0 15px 0;
+            font-size: 24px;
+            font-weight: bold;
+        }
+
+        .control-frame {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            justify-content: center;
+            margin-bottom: 15px;
+            font-size: 14px;
+        }
+
+        .control-frame select {
+            padding: 4px 8px;
+            border-radius: 4px;
+            border: 1px solid #ccc;
+            background: var(--btn-bg);
+            color: var(--text);
+            font-weight: bold;
+        }
+
+        .score-label, .status-label {
+            font-weight: bold;
+            font-size: 14px;
+            margin-bottom: 10px;
+            text-align: center;
+        }
+
+        .board {
+            display: grid;
+            gap: 6px;
+            margin-bottom: 15px;
+        }
+
+        .cell {
+            background-color: var(--btn-bg);
+            border: none;
+            font-weight: bold;
+            cursor: pointer;
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: background 0.2s;
+        }
+
+        .cell:hover {
+            opacity: 0.85;
+        }
+
+        .cell.x { color: var(--x-color); }
+        .cell.o { color: var(--o-color); }
+        .cell.win { background-color: var(--accent) !important; color: white !important; }
+
+        .action-frame {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+
+        .btn {
+            padding: 8px 12px;
+            font-size: 13px;
+            font-weight: bold;
+            background-color: var(--btn-bg);
+            color: var(--text);
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: opacity 0.2s;
+        }
+
+        .btn:hover {
+            opacity: 0.8;
+        }
+    </style>
+</head>
+<body id="body">
+
+    <div class="main-frame" id="mainFrame">
+        <h1 id="titleText">Tic Tac Toe</h1>
+
+        <!-- Control Panel -->
+        <div class="control-frame">
+            <label>Mode: 
+                <select id="modeSelect" onchange="onSettingsChange()">
+                    <option value="PvE">PvE</option>
+                    <option value="PvP">PvP</option>
+                </select>
+            </label>
+            <label>Difficulty: 
+                <select id="diffSelect" onchange="onSettingsChange()">
+                    <option value="Hard">Hard</option>
+                    <option value="Medium">Medium</option>
+                    <option value="Easy">Easy</option>
+                </select>
+            </label>
+            <label>Grid: 
+                <select id="gridSelect" onchange="onSettingsChange()">
+                    <option value="3">3x3</option>
+                    <option value="4">4x4</option>
+                    <option value="5">5x5</option>
+                </select>
+            </label>
+        </div>
+
+        <!-- Scoreboard & Status -->
+        <div class="score-label" id="scoreLabel">Player (X): 0 | Ties: 0 | AI (O): 0</div>
+        <div class="status-label" id="statusLabel">Player X's Turn</div>
+
+        <!-- Board Container -->
+        <div class="board" id="boardGrid"></div>
+
+        <!-- Action Buttons -->
+        <div class="action-frame">
+            <button class="btn" onclick="undoMove()">Undo Move</button>
+            <button class="btn" onclick="resetGame()">Restart</button>
+            <button class="btn" onclick="toggleTheme()">Theme</button>
+        </div>
+    </div>
+
+    <script>
+        const themes = {
+            Classic: { bg: "#F3F4F6", card: "#FFFFFF", text: "#1F2937", btn_bg: "#E5E7EB", x_color: "#2563EB", o_color: "#DC2626" },
+            Cyberpunk: { bg: "#0D0221", card: "#0F0529", "text": "#00F5D4", btn_bg: "#241042", x_color: "#00F5D4", o_color: "#7B2CBF" },
+            Dark: { bg: "#18181B", card: "#27272A", text: "#FAFAFA", btn_bg: "#3F3F46", x_color: "#38BDF8", o_color: "#F43F5E" }
+        };
+
+        let currentThemeKey = "Classic";
+        let boardSize = 3;
+        let winLength = 3;
+        let mode = "PvE";
+        let difficulty = "Hard";
+        let currentPlayer = "X";
+        let board = [];
+        let history = [];
+        let scores = { X: 0, O: 0, Ties: 0 };
+        let gameOver = false;
+
+        function applyTheme() {
+            let t = themes[currentThemeKey];
+            document.getElementById("body").style.backgroundColor = t.bg;
+            document.getElementById("body").style.color = t.text;
+            let mf = document.getElementById("mainFrame");
+            mf.style.backgroundColor = t.card;
+            mf.style.color = t.text;
+
+            document.documentElement.style.setProperty('--bg', t.bg);
+            document.documentElement.style.setProperty('--card', t.card);
+            document.documentElement.style.setProperty('--text', t.text);
+            document.documentElement.style.setProperty('--btn-bg', t.btn_bg);
+            document.documentElement.style.setProperty('--x-color', t.x_color);
+            document.documentElement.style.setProperty('--o-color', t.o_color);
+        }
+
+        function toggleTheme() {
+            let keys = Object.keys(themes);
+            let idx = keys.indexOf(currentThemeKey);
+            currentThemeKey = keys[(idx + 1) % keys.length];
+            applyTheme();
+        }
+
+        function onSettingsChange() {
+            mode = document.getElementById("modeSelect").value;
+            difficulty = document.getElementById("diffSelect").value;
+            boardSize = parseInt(document.getElementById("gridSelect").value);
+            winLength = boardSize === 3 ? 3 : 4;
+
+            let diffSelect = document.getElementById("diffSelect");
+            diffSelect.disabled = (mode === "PvP");
+
+            scores = { X: 0, O: 0, Ties: 0 };
+            resetGame();
+        }
+
+        function updateScoreboard() {
+            let oName = mode === "PvE" ? "AI" : "Player";
+            document.getElementById("scoreLabelinnerText") = 
+            document.getElementById("scoreLabel").innerText = `Player (X): ${scores.X} | Ties: ${scores.Ties} | ${oName} (O): ${scores.O}`;
+        }
+
+        function resetGame() {
+            board = Array(boardSize).fill("").map(() => Array(boardSize).fill(""));
+            history = [];
+            currentPlayer = "X";
+            gameOver = false;
+            
+            let gridEl = document.getElementById("boardGrid");
+            gridEl.style.gridTemplateColumns = `repeat(${boardSize}, ${boardSize === 3 ? '70px' : (boardSize === 4 ? '55px' : '45px')})`;
+            gridEl.style.gridTemplateRows = `repeat(${boardSize}, ${boardSize === 3 ? '70px' : (boardSize === 4 ? '55px' : '45px')})`;
+            gridEl.innerHTML = "";
+
+            let fontSize = boardSize === 3 ? '28px' : (boardSize === 4 ? '20px' : '16px');
+
+            for (let r = 0; r < boardSize; r++) {
+                for (let c = 0; c < boardSize; c++) {
+                    let btn = document.createElement("button");
+                    btn.className = "cell";
+                    btn.style.fontSize = fontSize;
+                    btn.id = `cell-${r}-${c}`;
+                    btn.onclick = () => makeMove(r, c);
+                    gridEl.appendChild(btn);
+                }
+            }
+
+            updateScoreboard();
+            document.getElementById("statusLabel").innerText = "Player X's Turn";
+        }
+
+        function makeMove(r, c) {
+            if (board[r][c] !== "" || gameOver) return;
+
+            history.push({ board: board.map(row => [...row]), player: currentPlayer });
+
+            board[r][c] = currentPlayer;
+            let cell = document.getElementById(`cell-${r}-${c}`);
+            cell.innerText = currentPlayer;
+            cell.classList.add(currentPlayer.toLowerCase());
+
+            let winData = checkWinner(board);
+            if (winData.winner) {
+                gameOver = true;
+                scores[winData.winner]++;
+                updateScoreboard();
+                highlightWin(winData.coords);
+                document.getElementById("statusLabel").innerText = `🎉 Player ${winData.winner} Wins!`;
+                return;
+            } else if (isBoardFull(board)) {
+                gameOver = true;
+                scores.Ties++;
+                updateScoreboard();
+                document.getElementById("statusLabel").innerText = "It's a Draw!";
+                return;
+            }
+
+            currentPlayer = currentPlayer === "X" ? "O" : "X";
+            document.getElementById("statusLabel").innerText = `Player ${currentPlayer}'s Turn`;
+
+            if (mode === "PvE" && currentPlayer === "O" && !gameOver) {
+                setTimeout(aiMove, 300);
+            }
+        }
+
+        function undoMove() {
+            if (history.length === 0 || gameOver) return;
+            let steps = (mode === "PvE" && history.length >= 2) ? 2 : 1;
+            for (let i = 0; i < steps; i++) {
+                if (history.length > 0) {
+                    let lastState = history.pop();
+                    board = lastState.board;
+                    currentPlayer = lastState.player;
+                }
+            }
+            refreshBoardUI();
+            gameOver = false;
+            document.getElementById("statusLabel").innerText = `Player ${currentPlayer}'s Turn`;
+        }
+
+        function refreshBoardUI() {
+            for (let r = 0; r < boardSize; r++) {
+                for (let c = 0; c < boardSize; c++) {
+                    let cell = document.getElementById(`cell-${r}-${c}`);
+                    let val = board[r][c];
+                    cell.innerText = val;
+                    cell.className = "cell";
+                    if (val) cell.classList.add(val.toLowerCase());
+                }
+            }
+        }
+
+        function highlightWin(coords) {
+            coords.forEach(([r, c]) => {
+                document.getElementById(`cell-${r}-${c}`).classList.add("win");
+            });
+        }
+
+        function checkWinner(b) {
+            let size = b.length;
+            let dirs = [[0, 1], [1, 0], [1, 1], [1, -1]];
+            for (let r = 0; r < size; r++) {
+                for (let c = 0; c < size; c++) {
+                    let player = b[r][c];
+                    if (!player) continue;
+                    for (let [dr, dc] of dirs) {
+                        let coords = [];
+                        for (let i = 0; i < winLength; i++) {
+                            let nr = r + dr * i, nc = c + dc * i;
+                            if (nr >= 0 && nr < size && nc >= 0 && nc < size && b[nr][nc] === player) {
+                                coords.push([nr, nc]);
+                            } else {
+                                break;
+                            }
+                        }
+                        if (coords.length === winLength) {
+                            return { winner: player, coords: coords };
+                        }
+                    }
+                }
+            }
+            return { winner: null, coords: [] };
+        }
+
+        function isBoardFull(b) {
+            return b.every(row => row.every(cell => cell !== ""));
+        }
+
+        function aiMove() {
+            let emptyCells = [];
+            for (let r = 0; r < boardSize; r++) {
+                for (let c = 0; c < boardSize; c++) {
+                    if (board[r][c] === "") emptyCells.push({r, c});
+                }
+            }
+            if (emptyCells.length === 0) return;
+
+            let move;
+            if (difficulty === "Easy") {
+                move = emptyCells[Math.floor(Math.random() * emptyCells.length)];
+            } else if (difficulty === "Medium") {
+                move = Math.random() < 0.5 ? getBestMove() : emptyCells[Math.floor(Math.random() * emptyCells.length)];
+            } else {
+                move = getBestMove();
+            }
+
+            if (move) makeMove(move.r, move.c);
+        }
+
+        function getBestMove() {
+            let bestScore = -Infinity;
+            let bestMove = null;
+            let maxDepth = boardSize > 3 ? 3 : 9;
+
+            for (let r = 0; r < boardSize; r++) {
+                for (let c = 0; c < boardSize; c++) {
+                    if (board[r][c] === "") {
+                        board[r][c] = "O";
+                        let score = minimax(board, 0, false, -Infinity, Infinity, maxDepth);
+                        board[r][c] = "";
+                        if (score > bestScore) {
+                            bestScore = score;
+                            bestMove = {r, c};
+                        }
+                    }
+                }
+            }
+            return bestMove;
+        }
+
+        function minimax(b, depth, isMaximizing, alpha, beta, maxDepth) {
+            let res = checkWinner(b);
+            if (res.winner === "O") return 10 - depth;
+            if (res.winner === "X") return depth - 10;
+            if (isBoardFull(b) || depth >= max_depth) return 0;
+
+            if (isMaximizing) {
+                let maxEval = -Infinity;
+                for (let r = 0; r < boardSize; r++) {
+                    for (let c = 0; c < boardSize; c++) {
+                        if (b[r][c] === "") {
+                            b[r][c] = "O";
+                            let eval = minimax(b, depth + 1, false, alpha, beta, maxDepth);
+                            b[r][c] = "";
+                            maxEval = Math.max(maxEval, eval);
+                            alpha = Math.max(alpha, eval);
+                            if (beta <= alpha) break;
+                        }
+                    }
+                }
+                return maxEval;
+            } else {
+                let minEval = Infinity;
+                for (let r = 0
